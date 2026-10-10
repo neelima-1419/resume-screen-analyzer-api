@@ -1,0 +1,3065 @@
+openapi: 3.0.3
+info:
+  title: Resume Screen Analyzer Management System API
+  description: |
+    Enterprise REST API and OpenAPI 3.0 specification for the **Resume Screen Analyzer Management System**.
+
+    This specification provides complete endpoint definitions, schemas, and interactive documentation for:
+    - **Authentication**: JWT token issuance, refresh, user registration, profile retrieval, and session termination.
+    - **Dashboard**: Aggregated recruitment metrics, KPI summaries, live activity stream, and skill market analytics.
+    - **Jobs**: Job requisition management, required technical/soft skill profiles, qualification thresholds, and opening lifecycle.
+    - **Candidates**: Talent profiles, contact information, detected skillsets, work history, and status tracking.
+    - **Resume Upload and Management**: Multi-format document ingestion (PDF, DOCX, TXT), validation, metadata extraction, and downloads.
+    - **Resume Analyzer**: Asynchronous AI/heuristic screening triggers, task progress tracking, and on-demand matching against job criteria.
+    - **Analysis Results**: Multi-dimensional scoring (overall, skills, experience, education), gap analysis, strengths/weaknesses, and ranked candidate leaderboards.
+    - **Shortlist Management**: Candidate recruitment funnel (stages: New → Screened → Shortlisted → Interviewing → Offered → Hired / Rejected), bulk progression, and review notes.
+  contact:
+    name: API Support Team
+    email: support@resumeanalyzer.local
+  license:
+    name: Proprietary Enterprise License
+    url: https://opensource.org/licenses/MIT
+  version: 1.0.0
+servers:
+- url: http://127.0.0.1:8000/api
+  description: Local Development Server
+- url: https://api.resumeanalyzer.io/v1
+  description: Production / Staging Gateway
+security:
+- BearerAuth: []
+tags:
+- name: Authentication
+  description: "JWT token issuance, user onboarding, profile self-service, and authentication session control."
+- name: Dashboard
+  description: "High-level analytics, operational recruiting metrics, system-wide counts, and audit activity streams."
+- name: Jobs
+  description: "Management of job postings, hiring criteria, departmental categorizations, and requisition status."
+- name: Candidates
+  description: "Candidate talent repository, background records, contact points, and lifecycle tracking."
+- name: Resume Upload and Management
+  description: "Ingestion of candidate resume documents (PDF, DOCX, TXT) via multipart upload, file validation, and retrieval."
+- name: Resume Analyzer
+  description: "Triggering AI screening routines, background scoring job status, and instant resume-to-job matching."
+- name: Analysis Results
+  description: "Evaluated scoring metrics, skill gap breakdowns, recruiter remarks, and candidate ranking leaderboards."
+- name: Shortlist Management
+  description: "Candidate qualification pipelines, recruitment stages progression, reviewer notes, and bulk decisions."
+paths:
+  /auth/register/:
+    post:
+      tags:
+      - Authentication
+      summary: Register a new recruiter/user account
+      description: "Create a new user account with credentials, organizational details, and designated role."
+      operationId: authRegister
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserRegistrationRequest"
+        required: true
+      responses:
+        "201":
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+      security: []
+  /auth/login/:
+    post:
+      tags:
+      - Authentication
+      summary: Authenticate user and obtain JWT tokens
+      description: Authenticate using username/email and password to receive JWT access and refresh tokens along with basic user details.
+      operationId: authLogin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+        required: true
+      responses:
+        "200":
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+      security: []
+  /auth/token/:
+    post:
+      tags:
+      - Authentication
+      summary: Obtain JWT token pair (Standard SimpleJWT)
+      description: Endpoint for acquiring access and refresh tokens adhering to DRF SimpleJWT conventions.
+      operationId: authTokenObtainPair
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenObtainPairRequest"
+        required: true
+      responses:
+        "200":
+          description: Token pair issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenObtainPairResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+      security: []
+  /auth/token/refresh/:
+    post:
+      tags:
+      - Authentication
+      summary: Refresh expired JWT access token
+      description: Exchange a valid refresh token for a newly minted access token.
+      operationId: authTokenRefresh
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenRefreshRequest"
+        required: true
+      responses:
+        "200":
+          description: New access token generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenRefreshResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+      security: []
+  /auth/logout/:
+    post:
+      tags:
+      - Authentication
+      summary: Logout / blacklist refresh token
+      description: Invalidate the user session and add the provided refresh token to the blacklist.
+      operationId: authLogout
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogoutRequest"
+        required: true
+      responses:
+        "200":
+          description: Successfully logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /auth/me/:
+    get:
+      tags:
+      - Authentication
+      summary: Get current authenticated user profile
+      description: "Retrieve user details, role assignment, and organization metadata for the caller."
+      operationId: authGetCurrentUser
+      responses:
+        "200":
+          description: User profile details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+    patch:
+      tags:
+      - Authentication
+      summary: Update current authenticated user profile
+      description: "Modify editable user attributes (first name, last name, phone, company)."
+      operationId: authUpdateCurrentUser
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserProfileUpdateRequest"
+        required: true
+      responses:
+        "200":
+          description: User profile updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /dashboard/overview/:
+    get:
+      tags:
+      - Dashboard
+      summary: Retrieve complete dashboard overview
+      description: "Returns combined recruitment KPIs, recent screening events, pipeline distributions, and high-demand skill trends."
+      operationId: dashboardGetOverview
+      responses:
+        "200":
+          description: Consolidated dashboard dataset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardOverview"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /dashboard/stats/:
+    get:
+      tags:
+      - Dashboard
+      summary: Key recruitment & screening metrics
+      description: "Fast aggregate stats including total jobs, candidates, processed resumes, shortlisted counts, and average match rate."
+      operationId: dashboardGetStats
+      responses:
+        "200":
+          description: Aggregate statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /dashboard/activities/:
+    get:
+      tags:
+      - Dashboard
+      summary: Recent system activities and audit feed
+      description: "Real-time chronological audit trail of resume uploads, screening triggers, and shortlist stage modifications."
+      operationId: dashboardGetActivities
+      parameters:
+      - name: limit
+        in: query
+        description: Maximum number of activity records to return
+        required: false
+        schema:
+          type: integer
+          default: 10
+      responses:
+        "200":
+          description: Activity list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityLogItem"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /dashboard/skills-analytics/:
+    get:
+      tags:
+      - Dashboard
+      summary: Skills supply vs demand analytics
+      description: Breakdown of most demanded skills in active job requisitions compared to skills detected in scanned candidate resumes.
+      operationId: dashboardGetSkillsAnalytics
+      responses:
+        "200":
+          description: Skills analytics breakdown
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SkillsAnalyticsResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /jobs/:
+    get:
+      tags:
+      - Jobs
+      summary: List and search jobs
+      description: "Retrieve a paginated list of job openings with optional filters by status, department, and full-text keyword search."
+      operationId: jobsList
+      parameters:
+      - name: status
+        in: query
+        description: Filter jobs by status
+        required: false
+        schema:
+          type: string
+          enum:
+          - draft
+          - active
+          - closed
+          - archived
+      - name: department
+        in: query
+        description: Filter by department name
+        required: false
+        schema:
+          type: string
+      - name: search
+        in: query
+        description: "Search title, description, or department"
+        required: false
+        schema:
+          type: string
+      - name: ordering
+        in: query
+        description: "Order results by field (e.g. created_at, -created_at, minimum_experience)"
+        required: false
+        schema:
+          type: string
+          default: -created_at
+      - name: page
+        in: query
+        description: Page number
+        required: false
+        schema:
+          type: integer
+          default: 1
+      - name: page_size
+        in: query
+        description: Number of items per page
+        required: false
+        schema:
+          type: integer
+          default: 10
+      responses:
+        "200":
+          description: Paginated job listings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedJobList"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+    post:
+      tags:
+      - Jobs
+      summary: Create a new job opening
+      description: "Post a new job opening with detailed criteria, required skills list, minimum experience, and qualifications."
+      operationId: jobsCreate
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobCreateRequest"
+        required: true
+      responses:
+        "201":
+          description: Job created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /jobs/{id}/:
+    get:
+      tags:
+      - Jobs
+      summary: Get job details by ID
+      description: "Retrieve comprehensive details, requirements, and creator metadata for a specific job requisition."
+      operationId: jobsRetrieve
+      parameters:
+      - name: id
+        in: path
+        description: Unique ID of the job
+        required: true
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Job details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    put:
+      tags:
+      - Jobs
+      summary: Replace job opening details
+      description: Comprehensive update replacing all editable fields of an existing job requisition.
+      operationId: jobsUpdate
+      parameters:
+      - name: id
+        in: path
+        description: Unique ID of the job
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobCreateRequest"
+        required: true
+      responses:
+        "200":
+          description: Job updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    delete:
+      tags:
+      - Jobs
+      summary: Delete or archive a job
+      description: Remove the job posting from the system or permanently archive it.
+      operationId: jobsDestroy
+      parameters:
+      - name: id
+        in: path
+        description: Unique ID of the job
+        required: true
+        schema:
+          type: integer
+      responses:
+        "204":
+          description: Job deleted successfully
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    patch:
+      tags:
+      - Jobs
+      summary: Partially update job opening
+      description: "Update selected fields (e.g., status transition from 'active' to 'closed', or adjusting required skills)."
+      operationId: jobsPartialUpdate
+      parameters:
+      - name: id
+        in: path
+        description: Unique ID of the job
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobUpdateRequest"
+        required: true
+      responses:
+        "200":
+          description: Job partially updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /jobs/{id}/candidates/:
+    get:
+      tags:
+      - Jobs
+      summary: List candidates associated with a job
+      description: Retrieve all candidates who have applied or been analyzed against the specified job opening.
+      operationId: jobsGetCandidates
+      parameters:
+      - name: id
+        in: path
+        description: Unique job ID
+        required: true
+        schema:
+          type: integer
+      - name: status
+        in: query
+        description: Filter candidate stage within this job
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 10
+      responses:
+        "200":
+          description: List of candidates for this job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedCandidateList"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /jobs/{id}/stats/:
+    get:
+      tags:
+      - Jobs
+      summary: Get statistics for a specific job
+      description: "Retrieve candidate counts, score distributions, and pipeline progression for this specific requisition."
+      operationId: jobsGetStats
+      parameters:
+      - name: id
+        in: path
+        description: Unique job ID
+        required: true
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Job-specific statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobStats"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /candidates/:
+    get:
+      tags:
+      - Candidates
+      summary: List and search candidates
+      description: "Paginated candidate directory with filters by status, skills, experience, and full-text keyword search across contact and professional attributes."
+      operationId: candidatesList
+      parameters:
+      - name: status
+        in: query
+        description: Filter by candidate lifecycle status
+        required: false
+        schema:
+          type: string
+          enum:
+          - new
+          - screened
+          - shortlisted
+          - interviewing
+          - offered
+          - hired
+          - rejected
+      - name: search
+        in: query
+        description: "Search by name, email, phone, location, or current company"
+        required: false
+        schema:
+          type: string
+      - name: min_experience
+        in: query
+        description: Minimum years of experience
+        required: false
+        schema:
+          type: number
+          format: float
+      - name: skills
+        in: query
+        description: Comma-separated list of required candidate skills
+        required: false
+        schema:
+          type: string
+      - name: ordering
+        in: query
+        description: "Ordering field (e.g., -created_at, experience_years, full_name)"
+        required: false
+        schema:
+          type: string
+          default: -created_at
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 10
+      responses:
+        "200":
+          description: Paginated candidate profiles
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedCandidateList"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+    post:
+      tags:
+      - Candidates
+      summary: Create candidate profile manually
+      description: Manually register a candidate profile prior to or alongside resume attachment.
+      operationId: candidatesCreate
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CandidateCreateRequest"
+        required: true
+      responses:
+        "201":
+          description: Candidate record created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Candidate"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /candidates/{id}/:
+    get:
+      tags:
+      - Candidates
+      summary: Get candidate profile by ID
+      description: "Full candidate details including extracted skill profile, educational credentials, work experience, and evaluation summary."
+      operationId: candidatesRetrieve
+      parameters:
+      - name: id
+        in: path
+        description: Unique candidate ID
+        required: true
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Candidate profile details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Candidate"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    put:
+      tags:
+      - Candidates
+      summary: Replace candidate profile details
+      description: "Comprehensive update for candidate contact information, credentials, and notes."
+      operationId: candidatesUpdate
+      parameters:
+      - name: id
+        in: path
+        description: Unique candidate ID
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CandidateCreateRequest"
+        required: true
+      responses:
+        "200":
+          description: Candidate profile updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Candidate"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    delete:
+      tags:
+      - Candidates
+      summary: Delete candidate record
+      description: Permanently remove a candidate record and cascade-remove associated resumes and evaluations.
+      operationId: candidatesDestroy
+      parameters:
+      - name: id
+        in: path
+        description: Unique candidate ID
+        required: true
+        schema:
+          type: integer
+      responses:
+        "204":
+          description: Candidate deleted successfully
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    patch:
+      tags:
+      - Candidates
+      summary: Partially update candidate profile
+      description: "Update specific candidate attributes such as lifecycle status, notes, or contact info."
+      operationId: candidatesPartialUpdate
+      parameters:
+      - name: id
+        in: path
+        description: Unique candidate ID
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CandidateUpdateRequest"
+        required: true
+      responses:
+        "200":
+          description: Candidate partially updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Candidate"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /candidates/{id}/resumes/:
+    get:
+      tags:
+      - Candidates
+      summary: List all resumes for a candidate
+      description: Retrieve historical and current resume document versions uploaded for this candidate.
+      operationId: candidatesGetResumes
+      parameters:
+      - name: id
+        in: path
+        description: Candidate ID
+        required: true
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: List of resumes for candidate
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ResumeDocument"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /candidates/{id}/history/:
+    get:
+      tags:
+      - Candidates
+      summary: Get candidate evaluation and screening history
+      description: "Retrieve past screening sessions, match score results across different jobs, and shortlist movement timeline."
+      operationId: candidatesGetHistory
+      parameters:
+      - name: id
+        in: path
+        description: Candidate ID
+        required: true
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Candidate screening timeline
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CandidateHistory"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /resumes/upload/:
+    post:
+      tags:
+      - Resume Upload and Management
+      summary: Upload a single candidate resume
+      description: |
+        Ingest a resume document via `multipart/form-data`.
+        Supports `.pdf`, `.docx`, and `.txt` files up to 10MB.
+        Optionally links to an existing `candidate_id` or `job_id`.
+        If `candidate_id` is omitted, the parser attempts automatic candidate profile creation.
+      operationId: resumesUploadSingle
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/resumes_upload_body"
+        required: true
+      responses:
+        "201":
+          description: Resume uploaded and parsed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeUploadResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "413":
+          description: Upload file too large (exceeds 10MB)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /resumes/batch-upload/:
+    post:
+      tags:
+      - Resume Upload and Management
+      summary: Batch upload multiple resumes
+      description: "Ingest multiple resume files concurrently in a single multipart request, linked optionally to a targeted job requisition."
+      operationId: resumesUploadBatch
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/resumes_batchupload_body"
+        required: true
+      responses:
+        "200":
+          description: Batch ingestion completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BatchUploadResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /resumes/:
+    get:
+      tags:
+      - Resume Upload and Management
+      summary: List uploaded resumes
+      description: "Paginated repository of all ingested resumes with parsing status, mime-types, file sizes, and candidate linkages."
+      operationId: resumesList
+      parameters:
+      - name: parsing_status
+        in: query
+        description: Filter by text parsing and extraction status
+        required: false
+        schema:
+          type: string
+          enum:
+          - pending
+          - processing
+          - completed
+          - failed
+      - name: candidate_id
+        in: query
+        description: Filter by associated candidate ID
+        required: false
+        schema:
+          type: integer
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 10
+      responses:
+        "200":
+          description: Paginated resume items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedResumeList"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /resumes/{id}/:
+    get:
+      tags:
+      - Resume Upload and Management
+      summary: Get resume metadata & parsed text
+      description: "Retrieve file details, OCR/extraction logs, and preview of extracted raw text."
+      operationId: resumesRetrieve
+      parameters:
+      - name: id
+        in: path
+        description: Unique resume ID
+        required: true
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Resume document metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeDocument"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    delete:
+      tags:
+      - Resume Upload and Management
+      summary: Delete a resume document
+      description: Permanently remove the resume file from media storage and database records.
+      operationId: resumesDestroy
+      parameters:
+      - name: id
+        in: path
+        description: Unique resume ID
+        required: true
+        schema:
+          type: integer
+      responses:
+        "204":
+          description: Resume document deleted successfully
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /resumes/{id}/download/:
+    get:
+      tags:
+      - Resume Upload and Management
+      summary: Download original resume file
+      description: "Stream and download the original uploaded binary file (.pdf, .docx, .txt)."
+      operationId: resumesDownload
+      parameters:
+      - name: id
+        in: path
+        description: Resume ID
+        required: true
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Binary file stream
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
+            text/plain:
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /analyzer/screen/:
+    post:
+      tags:
+      - Resume Analyzer
+      summary: Trigger screening analysis job
+      description: |
+        Initiates the AI screening pipeline evaluating candidate resumes against target job requisitions.
+        Calculates semantic match, required vs candidate skills overlap, experience tenure, and education fit.
+        Executes as an asynchronous task, returning a `task_id` for status polling.
+      operationId: analyzerTriggerScreening
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScreeningTriggerRequest"
+        required: true
+      responses:
+        "202":
+          description: Screening task accepted and queued for execution
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScreeningTaskResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /analyzer/tasks/{task_id}/:
+    get:
+      tags:
+      - Resume Analyzer
+      summary: Check screening task status & progress
+      description: "Poll status, percentage completion, processed resume count, and result summary for a background screening task."
+      operationId: analyzerGetTaskStatus
+      parameters:
+      - name: task_id
+        in: path
+        description: Background Celery/async task ID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: Task execution state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScreeningTaskStatus"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /analyzer/instant-match/:
+    post:
+      tags:
+      - Resume Analyzer
+      summary: Run instant synchronous matching
+      description: Evaluate a single resume directly against job requirements synchronously without dispatching a background queue task.
+      operationId: analyzerInstantMatch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InstantMatchRequest"
+        required: true
+      responses:
+        "200":
+          description: Immediate match evaluation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisResult"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /analyzer/re-evaluate/{result_id}/:
+    post:
+      tags:
+      - Resume Analyzer
+      summary: Re-evaluate analysis with adjusted weights
+      description: "Recalculate scores for an existing analysis result using customized weights for skills, experience, or education."
+      operationId: analyzerReEvaluate
+      parameters:
+      - name: result_id
+        in: path
+        description: Analysis Result ID
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReEvaluateRequest"
+        required: false
+      responses:
+        "200":
+          description: Updated analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisResult"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /analysis-results/:
+    get:
+      tags:
+      - Analysis Results
+      summary: List all analysis results
+      description: "Filter and browse candidate screening evaluations with parameters for minimum match score, recommendation classification, job, and candidate."
+      operationId: analysisResultsList
+      parameters:
+      - name: job_id
+        in: query
+        description: Filter results for a specific job
+        required: false
+        schema:
+          type: integer
+      - name: candidate_id
+        in: query
+        description: Filter results for a specific candidate
+        required: false
+        schema:
+          type: integer
+      - name: min_score
+        in: query
+        description: Filter by minimum overall match percentage (0-100)
+        required: false
+        schema:
+          type: number
+          format: float
+      - name: recommendation
+        in: query
+        description: Filter by AI recommendation status
+        required: false
+        schema:
+          type: string
+          enum:
+          - strongly_recommended
+          - recommended
+          - neutral
+          - not_recommended
+      - name: ordering
+        in: query
+        description: "Sort by score or date (-overall_match_score, -analyzed_at, skills_match_score)"
+        required: false
+        schema:
+          type: string
+          default: -overall_match_score
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 10
+      responses:
+        "200":
+          description: Paginated analysis results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedAnalysisResultList"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /analysis-results/{id}/:
+    get:
+      tags:
+      - Analysis Results
+      summary: Get deep-dive analysis result
+      description: "Detailed breakdown of the match score, matched vs missing skills, experience qualification fit, AI reasoning notes, and strengths/weaknesses summary."
+      operationId: analysisResultsRetrieve
+      parameters:
+      - name: id
+        in: path
+        description: Unique analysis result ID
+        required: true
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Complete evaluation report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisResult"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /analysis-results/jobs/{job_id}/rankings/:
+    get:
+      tags:
+      - Analysis Results
+      summary: Get candidate rankings leaderboard for a job
+      description: Retrieve all screened candidates for a specific job opening sorted descending by overall match score with rank position indicators.
+      operationId: analysisResultsGetRankings
+      parameters:
+      - name: job_id
+        in: path
+        description: Job ID
+        required: true
+        schema:
+          type: integer
+      - name: limit
+        in: query
+        description: Maximum number of ranked candidates to return
+        required: false
+        schema:
+          type: integer
+          default: 50
+      responses:
+        "200":
+          description: Ranked candidate leaderboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobRankingResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /analysis-results/{id}/export/:
+    get:
+      tags:
+      - Analysis Results
+      summary: Export candidate screening report
+      description: Download formatted evaluation dossier in PDF or CSV format.
+      operationId: analysisResultsExport
+      parameters:
+      - name: id
+        in: path
+        description: Analysis Result ID
+        required: true
+        schema:
+          type: integer
+      - name: format
+        in: query
+        description: Desired export format
+        required: false
+        schema:
+          type: string
+          enum:
+          - pdf
+          - csv
+          - json
+          default: pdf
+      responses:
+        "200":
+          description: Exported document stream
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            text/csv:
+              schema:
+                type: string
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisResult"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /analysis-results/{id}/feedback/:
+    post:
+      tags:
+      - Analysis Results
+      summary: Submit recruiter feedback or rating on analysis
+      description: Record recruiter agreement/disagreement or manual score adjustments to continuously refine matching model accuracy.
+      operationId: analysisResultsSubmitFeedback
+      parameters:
+      - name: id
+        in: path
+        description: Analysis Result ID
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalysisFeedbackRequest"
+        required: true
+      responses:
+        "200":
+          description: Feedback recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /shortlist/:
+    get:
+      tags:
+      - Shortlist Management
+      summary: List candidate shortlist entries
+      description: "Retrieve candidates actively in review or shortlist pipeline, with filters by job requisition and stage."
+      operationId: shortlistList
+      parameters:
+      - name: job_id
+        in: query
+        description: Filter shortlist entries by job
+        required: false
+        schema:
+          type: integer
+      - name: stage
+        in: query
+        description: Filter by pipeline stage
+        required: false
+        schema:
+          type: string
+          enum:
+          - new
+          - screened
+          - shortlisted
+          - interviewing
+          - offered
+          - hired
+          - rejected
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 10
+      responses:
+        "200":
+          description: Paginated shortlist entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedShortlistList"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+    post:
+      tags:
+      - Shortlist Management
+      summary: Add candidate to shortlist pipeline
+      description: Explicitly enroll a candidate into a job opening shortlist pipeline with initial stage and recruiter remarks.
+      operationId: shortlistCreate
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShortlistCreateRequest"
+        required: true
+      responses:
+        "201":
+          description: Candidate added to shortlist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShortlistEntry"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /shortlist/{id}/:
+    get:
+      tags:
+      - Shortlist Management
+      summary: Get shortlist entry details
+      description: "Retrieve pipeline record details including reviewer evaluation, current status, notes history, and candidate credentials."
+      operationId: shortlistRetrieve
+      parameters:
+      - name: id
+        in: path
+        description: Unique Shortlist Entry ID
+        required: true
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Shortlist entry details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShortlistEntry"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    delete:
+      tags:
+      - Shortlist Management
+      summary: Remove candidate from shortlist
+      description: Remove a candidate from this job's shortlist pipeline.
+      operationId: shortlistDestroy
+      parameters:
+      - name: id
+        in: path
+        description: Unique Shortlist Entry ID
+        required: true
+        schema:
+          type: integer
+      responses:
+        "204":
+          description: Candidate removed from shortlist
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /shortlist/{id}/stage/:
+    patch:
+      tags:
+      - Shortlist Management
+      summary: Transition candidate stage
+      description: "Progress or move candidate between hiring stages (e.g. screened -> shortlisted -> interviewing -> offered -> hired, or rejected)."
+      operationId: shortlistUpdateStage
+      parameters:
+      - name: id
+        in: path
+        description: Shortlist Entry ID
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShortlistStageUpdateRequest"
+        required: true
+      responses:
+        "200":
+          description: Candidate stage updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShortlistEntry"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+  /shortlist/bulk-action/:
+    post:
+      tags:
+      - Shortlist Management
+      summary: Bulk stage transition or decision
+      description: "Apply batch operations across multiple candidates simultaneously (e.g. bulk-shortlist top 5 candidates, bulk-advance to interview, or bulk-reject)."
+      operationId: shortlistBulkAction
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkShortlistActionRequest"
+        required: true
+      responses:
+        "200":
+          description: Bulk action executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkActionResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /shortlist/pipeline/{job_id}/:
+    get:
+      tags:
+      - Shortlist Management
+      summary: Get pipeline kanban/funnel stage metrics
+      description: Retrieve candidate counts grouped by each stage in the recruitment workflow for a specific job opening.
+      operationId: shortlistGetPipelineSummary
+      parameters:
+      - name: job_id
+        in: path
+        description: Job ID
+        required: true
+        schema:
+          type: integer
+      responses:
+        "200":
+          description: Stage counts and pipeline summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PipelineStageSummary"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+components:
+  schemas:
+    SuccessMessage:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Action completed successfully.
+    ErrorEnvelope:
+      required:
+      - error
+      type: object
+      properties:
+        error:
+          $ref: "#/components/schemas/ErrorEnvelope_error"
+    PaginationMeta:
+      type: object
+      properties:
+        count:
+          type: integer
+          example: 42
+        next:
+          type: string
+          nullable: true
+          example: http://127.0.0.1:8000/api/jobs/?page=2
+        previous:
+          type: string
+          nullable: true
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        username:
+          type: string
+          example: talent_lead
+        email:
+          type: string
+          format: email
+          example: recruiter@example.com
+        first_name:
+          type: string
+          example: Jane
+        last_name:
+          type: string
+          example: Doe
+        role:
+          type: string
+          example: recruiter
+          enum:
+          - admin
+          - recruiter
+          - hiring_manager
+          - viewer
+        company:
+          type: string
+          example: Acme Global Corp
+        phone:
+          type: string
+          example: +1-555-0199
+        created_at:
+          type: string
+          format: date-time
+          example: 2026-03-15T09:30:00Z
+    UserRegistrationRequest:
+      required:
+      - email
+      - password
+      - password_confirm
+      - username
+      type: object
+      properties:
+        username:
+          type: string
+          example: talent_lead
+        email:
+          type: string
+          format: email
+          example: recruiter@example.com
+        password:
+          type: string
+          format: password
+          example: P@ssw0rdSecure2026!
+        password_confirm:
+          type: string
+          format: password
+          example: P@ssw0rdSecure2026!
+        first_name:
+          type: string
+          example: Jane
+        last_name:
+          type: string
+          example: Doe
+        role:
+          type: string
+          example: recruiter
+          enum:
+          - admin
+          - recruiter
+          - hiring_manager
+          - viewer
+          default: recruiter
+        company:
+          type: string
+          example: Acme Global Corp
+        phone:
+          type: string
+          example: +1-555-0199
+    LoginRequest:
+      required:
+      - password
+      - username
+      type: object
+      properties:
+        username:
+          type: string
+          example: talent_lead
+        password:
+          type: string
+          format: password
+          example: P@ssw0rdSecure2026!
+    LoginResponse:
+      type: object
+      properties:
+        access:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzg5...
+        refresh:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc4...
+        user:
+          $ref: "#/components/schemas/User"
+    TokenObtainPairRequest:
+      required:
+      - password
+      - username
+      type: object
+      properties:
+        username:
+          type: string
+          example: talent_lead
+        password:
+          type: string
+          format: password
+          example: P@ssw0rdSecure2026!
+    TokenObtainPairResponse:
+      type: object
+      properties:
+        access:
+          type: string
+        refresh:
+          type: string
+    TokenRefreshRequest:
+      required:
+      - refresh
+      type: object
+      properties:
+        refresh:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    TokenRefreshResponse:
+      type: object
+      properties:
+        access:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    LogoutRequest:
+      required:
+      - refresh
+      type: object
+      properties:
+        refresh:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    UserProfileUpdateRequest:
+      type: object
+      properties:
+        first_name:
+          type: string
+          example: Jane
+        last_name:
+          type: string
+          example: Smith
+        company:
+          type: string
+          example: Acme NextGen
+        phone:
+          type: string
+          example: +1-555-9988
+    Job:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 101
+        title:
+          type: string
+          example: Senior Full Stack Engineer (Python / React)
+        description:
+          type: string
+          example: We are looking for an experienced full-stack engineer to build scalable APIs and responsive frontends.
+        department:
+          type: string
+          example: Engineering
+        location:
+          type: string
+          example: "Remote / New York, NY"
+        required_skills:
+          type: array
+          example:
+          - Python
+          - Django
+          - React
+          - PostgreSQL
+          - Docker
+          - AWS
+          - REST APIs
+          items:
+            type: string
+        qualifications:
+          type: string
+          example: Bachelor's degree in Computer Science or equivalent software engineering experience.
+        minimum_experience:
+          type: integer
+          example: 5
+        status:
+          type: string
+          example: active
+          enum:
+          - draft
+          - active
+          - closed
+          - archived
+        created_by:
+          $ref: "#/components/schemas/Job_created_by"
+        created_at:
+          type: string
+          format: date-time
+          example: 2026-03-20T14:15:00Z
+        updated_at:
+          type: string
+          format: date-time
+          example: 2026-03-21T08:00:00Z
+        candidates_count:
+          type: integer
+          example: 34
+        shortlisted_count:
+          type: integer
+          example: 8
+    JobListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 101
+        title:
+          type: string
+          example: Senior Full Stack Engineer (Python / React)
+        department:
+          type: string
+          example: Engineering
+        location:
+          type: string
+          example: Remote
+        status:
+          type: string
+          example: active
+          enum:
+          - draft
+          - active
+          - closed
+          - archived
+        minimum_experience:
+          type: integer
+          example: 5
+        required_skills:
+          type: array
+          example:
+          - Python
+          - React
+          - PostgreSQL
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+          example: 2026-03-20T14:15:00Z
+    JobCreateRequest:
+      required:
+      - description
+      - required_skills
+      - title
+      type: object
+      properties:
+        title:
+          type: string
+          example: Senior Full Stack Engineer (Python / React)
+        description:
+          type: string
+          example: Lead architecture and delivery of backend microservices and UI workflows.
+        department:
+          type: string
+          example: Engineering
+        location:
+          type: string
+          example: Remote
+        required_skills:
+          type: array
+          example:
+          - Python
+          - Django
+          - React
+          - PostgreSQL
+          - Docker
+          items:
+            type: string
+        qualifications:
+          type: string
+          example: B.S. in Computer Science or related degree.
+        minimum_experience:
+          type: integer
+          example: 5
+          default: 0
+        status:
+          type: string
+          example: active
+          enum:
+          - draft
+          - active
+          - closed
+          - archived
+          default: active
+    JobUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        department:
+          type: string
+        location:
+          type: string
+        required_skills:
+          type: array
+          items:
+            type: string
+        qualifications:
+          type: string
+        minimum_experience:
+          type: integer
+        status:
+          type: string
+          enum:
+          - draft
+          - active
+          - closed
+          - archived
+    JobStats:
+      type: object
+      properties:
+        job_id:
+          type: integer
+          example: 101
+        total_applicants:
+          type: integer
+          example: 45
+        screened_count:
+          type: integer
+          example: 38
+        shortlisted_count:
+          type: integer
+          example: 12
+        interviewing_count:
+          type: integer
+          example: 5
+        offered_count:
+          type: integer
+          example: 1
+        average_match_score:
+          type: number
+          format: float
+          example: 78.4
+        top_matching_candidates:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobStats_top_matching_candidates"
+    PaginatedJobList:
+      allOf:
+      - $ref: "#/components/schemas/PaginationMeta"
+      - type: object
+        properties:
+          results:
+            type: array
+            items:
+              $ref: "#/components/schemas/JobListItem"
+    Candidate:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 501
+        full_name:
+          type: string
+          example: Alex Morgan
+        email:
+          type: string
+          format: email
+          example: alex.morgan@devmail.io
+        phone:
+          type: string
+          example: +1-202-555-0143
+        location:
+          type: string
+          example: "Austin, TX"
+        skills:
+          type: array
+          example:
+          - Python
+          - Django
+          - FastAPI
+          - React
+          - PostgreSQL
+          - Docker
+          - Kubernetes
+          - AWS
+          items:
+            type: string
+        education:
+          type: string
+          example: "B.S. in Software Engineering, University of Texas at Austin (2020)"
+        experience_years:
+          type: number
+          format: float
+          example: 5.5
+        current_company:
+          type: string
+          example: CloudScale Systems
+        current_title:
+          type: string
+          example: Senior Backend Engineer
+        status:
+          type: string
+          example: shortlisted
+          enum:
+          - new
+          - screened
+          - shortlisted
+          - interviewing
+          - offered
+          - hired
+          - rejected
+        notes:
+          type: string
+          example: "Strong backend design background, cleared technical screening round with high marks."
+        created_at:
+          type: string
+          format: date-time
+          example: 2026-03-22T10:00:00Z
+        updated_at:
+          type: string
+          format: date-time
+          example: 2026-03-24T16:30:00Z
+        resumes_count:
+          type: integer
+          example: 2
+        latest_match_score:
+          type: number
+          format: float
+          example: 92.5
+    CandidateListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 501
+        full_name:
+          type: string
+          example: Alex Morgan
+        email:
+          type: string
+          format: email
+          example: alex.morgan@devmail.io
+        location:
+          type: string
+          example: "Austin, TX"
+        experience_years:
+          type: number
+          format: float
+          example: 5.5
+        status:
+          type: string
+          example: shortlisted
+          enum:
+          - new
+          - screened
+          - shortlisted
+          - interviewing
+          - offered
+          - hired
+          - rejected
+        skills:
+          type: array
+          example:
+          - Python
+          - React
+          - Docker
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+          example: 2026-03-22T10:00:00Z
+    CandidateCreateRequest:
+      required:
+      - email
+      - full_name
+      type: object
+      properties:
+        full_name:
+          type: string
+          example: Alex Morgan
+        email:
+          type: string
+          format: email
+          example: alex.morgan@devmail.io
+        phone:
+          type: string
+          example: +1-202-555-0143
+        location:
+          type: string
+          example: "Austin, TX"
+        skills:
+          type: array
+          example:
+          - Python
+          - Django
+          - React
+          - PostgreSQL
+          items:
+            type: string
+        education:
+          type: string
+          example: B.S. in Software Engineering
+        experience_years:
+          type: number
+          format: float
+          example: 5.5
+          default: 0
+        current_company:
+          type: string
+          example: CloudScale Systems
+        current_title:
+          type: string
+          example: Senior Backend Engineer
+        status:
+          type: string
+          example: new
+          enum:
+          - new
+          - screened
+          - shortlisted
+          - interviewing
+          - offered
+          - hired
+          - rejected
+          default: new
+        notes:
+          type: string
+          example: Initial referral from engineering department.
+    CandidateUpdateRequest:
+      type: object
+      properties:
+        full_name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        location:
+          type: string
+        skills:
+          type: array
+          items:
+            type: string
+        education:
+          type: string
+        experience_years:
+          type: number
+          format: float
+        current_company:
+          type: string
+        current_title:
+          type: string
+        status:
+          type: string
+          enum:
+          - new
+          - screened
+          - shortlisted
+          - interviewing
+          - offered
+          - hired
+          - rejected
+        notes:
+          type: string
+    CandidateHistory:
+      type: object
+      properties:
+        candidate_id:
+          type: integer
+          example: 501
+        evaluations:
+          type: array
+          items:
+            $ref: "#/components/schemas/CandidateHistory_evaluations"
+        stage_transitions:
+          type: array
+          items:
+            $ref: "#/components/schemas/CandidateHistory_stage_transitions"
+    PaginatedCandidateList:
+      allOf:
+      - $ref: "#/components/schemas/PaginationMeta"
+      - type: object
+        properties:
+          results:
+            type: array
+            items:
+              $ref: "#/components/schemas/CandidateListItem"
+    ResumeDocument:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 901
+        candidate_id:
+          type: integer
+          example: 501
+        candidate_name:
+          type: string
+          example: Alex Morgan
+        file_name:
+          type: string
+          example: Alex_Morgan_Resume_2026.pdf
+        file_url:
+          type: string
+          example: /media/resumes/Alex_Morgan_Resume_2026.pdf
+        file_size_bytes:
+          type: integer
+          example: 245890
+        mime_type:
+          type: string
+          example: application/pdf
+        parsing_status:
+          type: string
+          example: completed
+          enum:
+          - pending
+          - processing
+          - completed
+          - failed
+        parsed_text_preview:
+          type: string
+          example: "Alex Morgan | Senior Full Stack Engineer | Python, React, PostgreSQL..."
+        uploaded_at:
+          type: string
+          format: date-time
+          example: 2026-03-22T10:01:00Z
+    ResumeUploadResponse:
+      type: object
+      properties:
+        resume_id:
+          type: integer
+          example: 901
+        candidate_id:
+          type: integer
+          example: 501
+        file_name:
+          type: string
+          example: Alex_Morgan_Resume_2026.pdf
+        parsing_status:
+          type: string
+          example: completed
+        extracted_skills:
+          type: array
+          example:
+          - Python
+          - React
+          - PostgreSQL
+          - Docker
+          - AWS
+          items:
+            type: string
+        extracted_experience_years:
+          type: number
+          example: 5.5
+        message:
+          type: string
+          example: Resume document ingested and parsed successfully.
+    BatchUploadResponse:
+      type: object
+      properties:
+        total_files:
+          type: integer
+          example: 5
+        successful_uploads:
+          type: integer
+          example: 5
+        failed_uploads:
+          type: integer
+          example: 0
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResumeUploadResponse"
+        screening_task_id:
+          type: string
+          nullable: true
+          example: a8098c1a-fd86-4f48-a0e2-628f237efb99
+    PaginatedResumeList:
+      allOf:
+      - $ref: "#/components/schemas/PaginationMeta"
+      - type: object
+        properties:
+          results:
+            type: array
+            items:
+              $ref: "#/components/schemas/ResumeDocument"
+    ScreeningWeights:
+      type: object
+      properties:
+        skills_weight:
+          type: number
+          description: Weight for required skill matches (0.0 to 1.0)
+          format: float
+          example: 0.5
+          default: 0.5
+        experience_weight:
+          type: number
+          description: Weight for years of relevant experience (0.0 to 1.0)
+          format: float
+          example: 0.3
+          default: 0.3
+        education_weight:
+          type: number
+          description: Weight for educational background fit (0.0 to 1.0)
+          format: float
+          example: 0.2
+          default: 0.2
+    ScreeningTriggerRequest:
+      required:
+      - job_id
+      type: object
+      properties:
+        job_id:
+          type: integer
+          description: The job opening to screen candidates against
+          example: 101
+        candidate_ids:
+          type: array
+          description: "Optional list of candidate IDs. If omitted, screens all unanalyzed candidates for this job."
+          example:
+          - 501
+          - 502
+          - 503
+          items:
+            type: integer
+        resume_ids:
+          type: array
+          description: Optional specific resume IDs to analyze
+          example:
+          - 901
+          - 902
+          items:
+            type: integer
+        weights:
+          $ref: "#/components/schemas/ScreeningWeights"
+    ScreeningTaskResponse:
+      type: object
+      properties:
+        task_id:
+          type: string
+          format: uuid
+          example: a8098c1a-fd86-4f48-a0e2-628f237efb99
+        status:
+          type: string
+          example: queued
+          enum:
+          - queued
+          - processing
+        job_id:
+          type: integer
+          example: 101
+        resumes_queued:
+          type: integer
+          example: 15
+        estimated_duration_seconds:
+          type: integer
+          example: 12
+        message:
+          type: string
+          example: "Screening task successfully queued. Check status via /analyzer/tasks/{task_id}/."
+    ScreeningTaskStatus:
+      type: object
+      properties:
+        task_id:
+          type: string
+          format: uuid
+          example: a8098c1a-fd86-4f48-a0e2-628f237efb99
+        status:
+          type: string
+          example: completed
+          enum:
+          - queued
+          - processing
+          - completed
+          - failed
+        progress_percentage:
+          type: integer
+          example: 100
+        total_items:
+          type: integer
+          example: 15
+        processed_items:
+          type: integer
+          example: 15
+        results_generated:
+          type: integer
+          example: 15
+        started_at:
+          type: string
+          format: date-time
+          example: 2026-03-24T12:00:00Z
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-03-24T12:00:11Z
+        error_message:
+          type: string
+          nullable: true
+    InstantMatchRequest:
+      required:
+      - job_id
+      type: object
+      properties:
+        job_id:
+          type: integer
+          example: 101
+        resume_id:
+          type: integer
+          description: Existing resume ID to compare against job
+          example: 901
+        raw_resume_text:
+          type: string
+          description: Direct raw resume text for instantaneous testing
+          example: "Senior Developer with 6 years experience in Python, Django, React, AWS..."
+    ReEvaluateRequest:
+      type: object
+      properties:
+        weights:
+          $ref: "#/components/schemas/ScreeningWeights"
+        custom_instructions:
+          type: string
+          example: Emphasize microservices architecture and Kubernetes experience.
+    SkillMatchBreakdown:
+      type: object
+      properties:
+        skill:
+          type: string
+          example: Python
+        status:
+          type: string
+          example: matched
+          enum:
+          - matched
+          - missing
+          - partial
+        proficiency_level:
+          type: string
+          example: expert
+          enum:
+          - beginner
+          - intermediate
+          - advanced
+          - expert
+        years_experience_detected:
+          type: number
+          example: 5
+    AnalysisResult:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 2001
+        job_id:
+          type: integer
+          example: 101
+        job_title:
+          type: string
+          example: Senior Full Stack Engineer (Python / React)
+        candidate_id:
+          type: integer
+          example: 501
+        candidate_name:
+          type: string
+          example: Alex Morgan
+        candidate_email:
+          type: string
+          format: email
+          example: alex.morgan@devmail.io
+        resume_id:
+          type: integer
+          example: 901
+        overall_match_score:
+          type: number
+          format: float
+          example: 92.5
+        skills_match_score:
+          type: number
+          format: float
+          example: 95
+        experience_match_score:
+          type: number
+          format: float
+          example: 90
+        education_match_score:
+          type: number
+          format: float
+          example: 88
+        recommendation:
+          type: string
+          example: strongly_recommended
+          enum:
+          - strongly_recommended
+          - recommended
+          - neutral
+          - not_recommended
+        matched_skills:
+          type: array
+          example:
+          - Python
+          - Django
+          - React
+          - PostgreSQL
+          - Docker
+          - AWS
+          - REST APIs
+          items:
+            type: string
+        missing_skills:
+          type: array
+          example:
+          - GraphQL
+          items:
+            type: string
+        detailed_skills_breakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/SkillMatchBreakdown"
+        candidate_experience_years:
+          type: number
+          example: 5.5
+        required_experience_years:
+          type: integer
+          example: 5
+        strengths:
+          type: array
+          example:
+          - Comprehensive mastery of Python and full-stack React tooling.
+          - Exceeds minimum experience requirement with 5.5 years.
+          - Proven production deployments with Docker and AWS cloud infra.
+          items:
+            type: string
+        weaknesses:
+          type: array
+          example:
+          - No explicit mentions of GraphQL in recent projects.
+          items:
+            type: string
+        ai_summary:
+          type: string
+          example: "Alex Morgan displays exceptional alignment with the Senior Full Stack role. Core stack requirements (Python, Django, React, PostgreSQL) are thoroughly demonstrated in recent work history."
+        analyzed_at:
+          type: string
+          format: date-time
+          example: 2026-03-24T12:00:11Z
+    AnalysisResultListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 2001
+        job_id:
+          type: integer
+          example: 101
+        job_title:
+          type: string
+          example: Senior Full Stack Engineer
+        candidate_id:
+          type: integer
+          example: 501
+        candidate_name:
+          type: string
+          example: Alex Morgan
+        overall_match_score:
+          type: number
+          format: float
+          example: 92.5
+        recommendation:
+          type: string
+          example: strongly_recommended
+        analyzed_at:
+          type: string
+          format: date-time
+          example: 2026-03-24T12:00:11Z
+    PaginatedAnalysisResultList:
+      allOf:
+      - $ref: "#/components/schemas/PaginationMeta"
+      - type: object
+        properties:
+          results:
+            type: array
+            items:
+              $ref: "#/components/schemas/AnalysisResultListItem"
+    RankedCandidateItem:
+      type: object
+      properties:
+        rank:
+          type: integer
+          example: 1
+        candidate_id:
+          type: integer
+          example: 501
+        candidate_name:
+          type: string
+          example: Alex Morgan
+        candidate_email:
+          type: string
+          example: alex.morgan@devmail.io
+        overall_match_score:
+          type: number
+          format: float
+          example: 92.5
+        skills_match_score:
+          type: number
+          format: float
+          example: 95
+        experience_years:
+          type: number
+          example: 5.5
+        recommendation:
+          type: string
+          example: strongly_recommended
+        current_stage:
+          type: string
+          example: shortlisted
+        analysis_result_id:
+          type: integer
+          example: 2001
+    JobRankingResponse:
+      type: object
+      properties:
+        job_id:
+          type: integer
+          example: 101
+        job_title:
+          type: string
+          example: Senior Full Stack Engineer (Python / React)
+        total_ranked_candidates:
+          type: integer
+          example: 24
+        rankings:
+          type: array
+          items:
+            $ref: "#/components/schemas/RankedCandidateItem"
+    AnalysisFeedbackRequest:
+      required:
+      - rating
+      type: object
+      properties:
+        rating:
+          maximum: 5
+          minimum: 1
+          type: integer
+          description: Recruiter rating of model score accuracy (1 to 5 stars)
+          example: 5
+        agrees_with_score:
+          type: boolean
+          example: true
+        manual_override_score:
+          type: number
+          format: float
+          nullable: true
+          example: 90
+        feedback_comments:
+          type: string
+          example: Spot on evaluation. Candidate confirmed deep Python background during phone screen.
+    ShortlistEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 701
+        job_id:
+          type: integer
+          example: 101
+        job_title:
+          type: string
+          example: Senior Full Stack Engineer (Python / React)
+        candidate_id:
+          type: integer
+          example: 501
+        candidate_name:
+          type: string
+          example: Alex Morgan
+        candidate_email:
+          type: string
+          example: alex.morgan@devmail.io
+        stage:
+          type: string
+          example: shortlisted
+          enum:
+          - new
+          - screened
+          - shortlisted
+          - interviewing
+          - offered
+          - hired
+          - rejected
+        match_score:
+          type: number
+          format: float
+          example: 92.5
+        recruiter_notes:
+          type: string
+          example: Advanced to initial technical interview on Thursday 2 PM.
+        assigned_recruiter:
+          $ref: "#/components/schemas/Job_created_by"
+        created_at:
+          type: string
+          format: date-time
+          example: 2026-03-23T11:00:00Z
+        updated_at:
+          type: string
+          format: date-time
+          example: 2026-03-24T14:30:00Z
+    ShortlistCreateRequest:
+      required:
+      - candidate_id
+      - job_id
+      type: object
+      properties:
+        job_id:
+          type: integer
+          example: 101
+        candidate_id:
+          type: integer
+          example: 501
+        stage:
+          type: string
+          example: shortlisted
+          enum:
+          - new
+          - screened
+          - shortlisted
+          - interviewing
+          - offered
+          - hired
+          - rejected
+          default: shortlisted
+        notes:
+          type: string
+          example: Selected based on top ranking score in AI screening.
+    ShortlistStageUpdateRequest:
+      required:
+      - stage
+      type: object
+      properties:
+        stage:
+          type: string
+          example: interviewing
+          enum:
+          - new
+          - screened
+          - shortlisted
+          - interviewing
+          - offered
+          - hired
+          - rejected
+        notes:
+          type: string
+          example: Passed hiring manager screen; invited for architecture panel interview.
+        notify_candidate:
+          type: boolean
+          example: false
+          default: false
+    BulkShortlistActionRequest:
+      required:
+      - action
+      - candidate_ids
+      - job_id
+      type: object
+      properties:
+        job_id:
+          type: integer
+          example: 101
+        candidate_ids:
+          type: array
+          example:
+          - 501
+          - 502
+          - 503
+          items:
+            type: integer
+        action:
+          type: string
+          example: shortlist
+          enum:
+          - shortlist
+          - reject
+          - advance_to_interview
+          - mark_screened
+        notes:
+          type: string
+          example: Bulk shortlisted top tier candidates above 90% match threshold.
+    BulkActionResponse:
+      type: object
+      properties:
+        affected_count:
+          type: integer
+          example: 3
+        action_performed:
+          type: string
+          example: shortlist
+        job_id:
+          type: integer
+          example: 101
+        message:
+          type: string
+          example: Successfully updated 3 candidate records.
+    PipelineStageSummary:
+      type: object
+      properties:
+        job_id:
+          type: integer
+          example: 101
+        job_title:
+          type: string
+          example: Senior Full Stack Engineer (Python / React)
+        total_candidates:
+          type: integer
+          example: 45
+        stages:
+          $ref: "#/components/schemas/PipelineStageSummary_stages"
+    PaginatedShortlistList:
+      allOf:
+      - $ref: "#/components/schemas/PaginationMeta"
+      - type: object
+        properties:
+          results:
+            type: array
+            items:
+              $ref: "#/components/schemas/ShortlistEntry"
+    DashboardStats:
+      type: object
+      properties:
+        total_jobs:
+          type: integer
+          example: 14
+        active_jobs:
+          type: integer
+          example: 8
+        total_candidates:
+          type: integer
+          example: 230
+        resumes_scanned:
+          type: integer
+          example: 312
+        shortlisted_candidates:
+          type: integer
+          example: 48
+        interviews_scheduled:
+          type: integer
+          example: 16
+        average_match_score:
+          type: number
+          format: float
+          example: 76.8
+        pending_screening_tasks:
+          type: integer
+          example: 2
+    ActivityLogItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 801
+        action:
+          type: string
+          example: candidate_shortlisted
+        actor_name:
+          type: string
+          example: Jane Doe
+        entity_type:
+          type: string
+          example: candidate
+        entity_id:
+          type: integer
+          example: 501
+        description:
+          type: string
+          example: Candidate Alex Morgan was shortlisted for Senior Full Stack Engineer (Score 92.5%).
+        timestamp:
+          type: string
+          format: date-time
+          example: 2026-03-24T14:30:00Z
+    SkillsAnalyticsResponse:
+      type: object
+      properties:
+        top_in_demand_skills:
+          type: array
+          items:
+            $ref: "#/components/schemas/SkillsAnalyticsResponse_top_in_demand_skills"
+        top_available_skills:
+          type: array
+          items:
+            $ref: "#/components/schemas/SkillsAnalyticsResponse_top_available_skills"
+        high_gap_skills:
+          type: array
+          items:
+            $ref: "#/components/schemas/SkillsAnalyticsResponse_high_gap_skills"
+    DashboardOverview:
+      type: object
+      properties:
+        metrics:
+          $ref: "#/components/schemas/DashboardStats"
+        pipeline_breakdown:
+          $ref: "#/components/schemas/DashboardOverview_pipeline_breakdown"
+        recent_scans:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnalysisResultListItem"
+        recent_activities:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityLogItem"
+    resumes_upload_body:
+      required:
+      - file
+      type: object
+      properties:
+        file:
+          type: string
+          description: "Resume document file (PDF, DOCX, TXT max 10MB)"
+          format: binary
+        candidate_id:
+          type: integer
+          description: Optional ID of the existing candidate profile
+        job_id:
+          type: integer
+          description: Optional ID of the job opening to link this resume to
+        auto_screen:
+          type: boolean
+          description: Automatically run screening analyzer against job_id upon upload
+          default: false
+    resumes_batchupload_body:
+      required:
+      - files
+      type: object
+      properties:
+        files:
+          type: array
+          description: "Array of resume files (PDF, DOCX, TXT)"
+          items:
+            type: string
+            format: binary
+        job_id:
+          type: integer
+          description: Target job opening to associate all uploaded resumes with
+        auto_screen:
+          type: boolean
+          description: Automatically queue AI screening for all uploaded candidates
+          default: true
+    ErrorEnvelope_error:
+      required:
+      - code
+      - message
+      type: object
+      properties:
+        code:
+          type: string
+          example: validation_error
+        message:
+          type: string
+          example: Please correct the highlighted fields.
+        details:
+          type: object
+          additionalProperties: true
+          example:
+            field_name:
+            - This field is required.
+    Job_created_by:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        username:
+          type: string
+          example: talent_lead
+    JobStats_top_matching_candidates:
+      type: object
+      properties:
+        candidate_id:
+          type: integer
+          example: 501
+        name:
+          type: string
+          example: Alex Morgan
+        score:
+          type: number
+          example: 94.2
+    CandidateHistory_evaluations:
+      type: object
+      properties:
+        job_id:
+          type: integer
+          example: 101
+        job_title:
+          type: string
+          example: Senior Full Stack Engineer
+        overall_score:
+          type: number
+          example: 92.5
+        recommendation:
+          type: string
+          example: strongly_recommended
+        analyzed_at:
+          type: string
+          format: date-time
+          example: 2026-03-22T10:05:00Z
+    CandidateHistory_stage_transitions:
+      type: object
+      properties:
+        from_stage:
+          type: string
+          example: screened
+        to_stage:
+          type: string
+          example: shortlisted
+        changed_by:
+          type: string
+          example: Jane Doe
+        timestamp:
+          type: string
+          format: date-time
+          example: 2026-03-23T11:00:00Z
+    PipelineStageSummary_stages:
+      type: object
+      properties:
+        new:
+          type: integer
+          example: 7
+        screened:
+          type: integer
+          example: 20
+        shortlisted:
+          type: integer
+          example: 10
+        interviewing:
+          type: integer
+          example: 5
+        offered:
+          type: integer
+          example: 2
+        hired:
+          type: integer
+          example: 1
+        rejected:
+          type: integer
+          example: 0
+    SkillsAnalyticsResponse_top_in_demand_skills:
+      type: object
+      properties:
+        skill:
+          type: string
+          example: Python
+        demand_frequency:
+          type: integer
+          example: 12
+    SkillsAnalyticsResponse_top_available_skills:
+      type: object
+      properties:
+        skill:
+          type: string
+          example: React
+        talent_pool_count:
+          type: integer
+          example: 85
+    SkillsAnalyticsResponse_high_gap_skills:
+      type: object
+      properties:
+        skill:
+          type: string
+          example: Kubernetes
+        gap_percentage:
+          type: number
+          example: 45.2
+    DashboardOverview_pipeline_breakdown:
+      type: object
+      properties:
+        new:
+          type: integer
+          example: 42
+        screened:
+          type: integer
+          example: 110
+        shortlisted:
+          type: integer
+          example: 48
+        interviewing:
+          type: integer
+          example: 16
+        offered:
+          type: integer
+          example: 9
+        hired:
+          type: integer
+          example: 5
+  responses:
+    UnauthorizedError:
+      description: Authentication credentials missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: authentication_failed
+              message: Authentication credentials were not provided or are invalid.
+              details:
+                detail: Given token not valid for any token type
+    ValidationError:
+      description: Request payload failed schema or field validation
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: validation_error
+              message: Please correct the highlighted fields.
+              details:
+                email:
+                - candidate with this email already exists.
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: not_found
+              message: The requested resource was not found.
+              details:
+                detail: Not found.
+  securitySchemes:
+    BearerAuth:
+      type: http
+      description: Supply JWT Access Token with `Bearer <token>` format in Authorization header.
+      scheme: bearer
+      bearerFormat: JWT
+    SessionAuth:
+      type: apiKey
+      description: Standard Django session cookie authentication.
+      name: sessionid
+      in: cookie
